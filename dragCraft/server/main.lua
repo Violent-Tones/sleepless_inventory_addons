@@ -7,6 +7,7 @@
 ---@class CraftResult
 ---@field name string The name of the resulting item.
 ---@field amount number The amount of the resulting item.
+---@field metadata table Metadata for the resulting item. Add through event handler.
 
 ---@class CraftQueueEntry
 ---@field item1 CraftItem Information about the first item used in crafting.
@@ -58,6 +59,11 @@ local craftHook = ox_inventory:registerHook('swapItems', function(data)
                 amount = resultData.amount
             }
         end
+
+        -- Add metadata to recipe
+        recipe.costs[fromSlot.name].metadata = fromSlot.metadata
+        recipe.costs[toSlot.name].metadata = toSlot.metadata
+        recipe.source = data.source
 
         CraftQueue[data.source] = {
             item1 = {
@@ -114,7 +120,7 @@ local function processCraftItem(source, craftItem)
     if craftItem.amount > 0 and craftItem.amount < 1 then
         updateItemDurability(source, craftItem)
     else
-        ox_inventory:RemoveItem(source, craftItem.name, craftItem.amount)
+        ox_inventory:RemoveItem(source, craftItem.name, craftItem.amount, nil, craftItem.slot)
     end
 end
 
@@ -134,7 +140,7 @@ RegisterNetEvent('dragCraft:success', function(success, index)
 
         for i = 1, #queuedCraft.result do
             local resultData = queuedCraft.result[i]
-            ox_inventory:AddItem(source, resultData.name, resultData.amount)
+            ox_inventory:AddItem(source, resultData.name, resultData.amount, resultData.metadata)
         end
 
         if recipe.server.after then
@@ -157,3 +163,10 @@ end
 
 lib.callback.register('dragCraft:server:addRecipe', addRecipe)
 exports('addRecipe', addRecipe)
+
+AddEventHandler('dragCraft:AddResultMetadata', function(source, index, metadata)
+    if not index or not metadata then return end
+    local src = source
+    local craft = CraftQueue[src]
+    craft.result[index].metadata = metadata
+  end)
